@@ -1,0 +1,104 @@
+---
+title: "steps data"
+author: "Cristian"
+date: "02. 04. 2016"
+output: html_document
+---
+
+### Import the dataset
+```{r, echo = TRUE}
+Sys.setlocale("LC_TIME", "en_GB.UTF-8")
+library(knitr)
+setwd("/home/cristian/Documents/PhD/lectures/coursera/reproducibleResearch/week1/")
+steps <- read.csv("activity.csv")
+head(steps)
+```
+
+### Transform the dataset
+```{r, echo = TRUE}
+library(dplyr)
+library(lubridate)
+steps$day <- as.numeric(steps$date)
+stepsDt <- tbl_df(steps)
+stepsDay <- group_by(stepsDt, day)
+stepsDayTotal <- summarize(stepsDay, sumSteps = sum(steps))
+hist(stepsDayTotal$sumSteps, xlab = "Total number of steps / day", main = 
+    "Distribution of the number of steps taken per day")
+meanSteps <- mean(stepsDayTotal$sumSteps, na.rm = TRUE)
+medianSteps <- median(stepsDayTotal$sumSteps, na.rm = TRUE)
+```
+The mean number of steps taken each day is `r meanSteps`.
+The median number of steps taken each day is `r medianSteps`.
+
+### What is the average daily activity pattern?
+```{r, echo = TRUE}
+stepsInterval <- group_by(stepsDt, interval)
+stepsIntervalMean <- summarize(stepsInterval, intervalMean = mean(steps, na.rm = TRUE))
+stepsIntervalMean
+plot(stepsIntervalMean$interval, stepsIntervalMean$intervalMean, type = "l", 
+     xlab = "5-minutes interval", ylab = "Mean number of steps in the interval
+     across all days", main = "Time-series plot of the mean number of steps taken
+     in each 5-minutes interval on average across all days")
+stepsMax <- max(stepsIntervalMean$intervalMean)
+intervalMax <- stepsIntervalMean$interval[stepsIntervalMean$intervalMean == stepsMax]
+```
+The 5-minutes interval `r intervalMax` has the highest average number of steps with `r stepsMax` steps taken in that interval on average.
+
+### Imputing missing values
+```{r, echo = TRUE}
+stepsNas <- length(steps$steps[is.na(steps$steps)])
+nasIndices <- which(is.na(steps$steps))
+for (i in nasIndices) {
+    steps$steps[i] <- stepsIntervalMean$intervalMean[stepsIntervalMean$interval == steps$interval[i]]
+}
+stepsDt <- tbl_df(steps)
+stepsDt
+```
+There are `r stepsNas` intervals for which the number of steps taken is not available. Each missing value is replaced by the mean number of steps taken during that interval across all days.
+Check that the imputation has worked properly by plotting the time-series plot again. It should be the same as before because the mean in each interval should have remained the same.
+```{r, echo = TRUE}
+stepsInterval <- group_by(stepsDt, interval)
+stepsIntervalMean <- summarize(stepsInterval, intervalMean = mean(steps, na.rm = TRUE))
+stepsIntervalMean
+plot(stepsIntervalMean$interval, stepsIntervalMean$intervalMean, type = "l", 
+     xlab = "5-minutes interval", ylab = "Mean number of steps in the interval
+     across all days", main = "Time-series plot of the mean number of steps taken
+     in each 5-minutes interval on average across all days")
+```
+The number of NAs is now `r length(steps$steps[is.na(steps$steps)])`.
+
+```{r, echo = TRUE}
+stepsDayComplete <- group_by(stepsDt, day)
+stepsDayCompleteTotal <- summarize(stepsDayComplete, sumStepsComplete = sum(steps))
+hist(stepsDayCompleteTotal$sumStepsComplete, xlab = "Total number of steps / day", main = 
+    "Distribution of the number of steps taken per day")
+meanStepsComplete <- mean(stepsDayCompleteTotal$sumStepsComplete, na.rm = TRUE)
+medianStepsComplete <- median(stepsDayCompleteTotal$sumSteps, na.rm = TRUE)
+```
+The mean number of steps taken each day is now `r meanStepsComplete`, unchanged from before.
+The median number of steps taken each day is `r medianStepsComplete`, slightly higher than before.
+
+### Are there differences in activity patterns between weekdays and weekends?
+```{r, echo = TRUE}
+steps$weekday <- weekdays(as.Date(steps$date))
+steps$dayType <- rep("weekday", nrow(steps))
+steps$dayType[steps$weekday == "Saturday" | steps$weekday == "Sunday"] <- "weekend"
+par(mfrow = c(2, 1))
+# Weekdays
+stepsWeekdays <- tbl_df(steps[steps$dayType == "weekday", ])
+stepsWeekdaysInterval <- group_by(stepsWeekdays, interval)
+stepsWeekdaysIntervalMean <- summarize(stepsWeekdaysInterval, intervalMean = mean(steps, na.rm = TRUE))
+stepsWeekdaysIntervalMean
+plot(stepsWeekdaysIntervalMean$interval, stepsWeekdaysIntervalMean$intervalMean, 
+     type = "l", xlab = "5-minutes interval", ylab = "Mean number of steps in the interval
+     across all weekdays", main = "Time-series plot of the mean number of steps taken
+     in each 5-minutes interval on average across all weekdays")
+# Weekends
+stepsWeekends <- tbl_df(steps[steps$dayType == "weekend", ])
+stepsWeekendsInterval <- group_by(stepsWeekends, interval)
+stepsWeekendsIntervalMean <- summarize(stepsWeekendsInterval, intervalMean = mean(steps, na.rm = TRUE))
+stepsWeekendsIntervalMean
+plot(stepsWeekendsIntervalMean$interval, stepsWeekendsIntervalMean$intervalMean, 
+     type = "l", xlab = "5-minutes interval", ylab = "Mean number of steps in the    interval
+     across all weekend", main = "Weekend")
+```
